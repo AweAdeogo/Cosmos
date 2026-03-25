@@ -3,51 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Divine Titan: Soul Sea</title>
+    <title>Divine Titan Soul Sea</title>
     <style>
         body {
-            background: linear-gradient(to bottom, #000428, #004e92);
-            color: #ffffff;
-            font-family: 'Arial', sans-serif;
+            margin: 0;
             overflow: hidden;
+            background-color: #6a5acd; /* Purple/Lavender color */
         }
-        h1 {
-            text-align: center;
-            font-size: 4em;
-            text-shadow: 0 0 60px rgba(255, 255, 255, 0.9);
-            animation: fadein 2s;
-        }
-        @keyframes fadein {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .dream-animation {
-            animation: floating 6s infinite;
-        }
-        @keyframes floating {
-            0% { transform: translateY(0); }
-            50% { transform: translateY(-20px); }
-            100% { transform: translateY(0); }
-        }
-        .blur {
-            filter: blur(5px);
-            transition: filter 0.5s;
-        }
-        .blur:hover {
-            filter: blur(0);
+        #loading {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            color: white;
+            z-index: 9999;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/OrbitControls.js"></script>
 </head>
 <body>
-    <h1 class="dream-animation">Welcome to the Divine Titan: Soul Sea</h1>
-    <div class="blur">
-        <p>Immerse yourself in the rich mythology of the Shadow Slave and the essence of divine dreams.</p>
-    </div>
+    <div id="loading">Loading...</div>
     <script>
-        // Dreamlike animations here
-        setInterval(function() {
-            document.body.style.background = '\n                linear-gradient(to bottom, #26a0da, #cafffb)';
-        }, 5000);
+        // Hide loading screen after 1.2 seconds
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+        }, 1200);
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Render background stars
+        const starsCount = 2000;
+        const starsGeometry = new THREE.BufferGeometry();
+        const starsPositions = new Float32Array(starsCount * 3);
+        for (let i = 0; i < starsCount; i++) {
+            starsPositions.set([
+                (Math.random() - 0.5) * 100,
+                (Math.random() - 0.5) * 100,
+                (Math.random() - 0.5) * 100,
+            ], i * 3);
+        }
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(starsPositions, 3));
+        const starsMaterial = new THREE.PointsMaterial({
+            size: 0.5,
+            color: new THREE.Color(0xffffff * Math.random()),
+            sizeAttenuation: true
+        });
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
+
+        // Add OrbitControls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        // Camera position
+        camera.position.z = 50;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            stars.rotation.x += 0.001;
+            stars.rotation.y += 0.001;
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
     </script>
 </body>
 </html>

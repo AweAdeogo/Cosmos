@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Divine Titan: Soul Sea</title>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #000428, #004e92);
+            color: #ffffff;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        h1 {
+            text-align: center;
+            font-size: 4em;
+            text-shadow: 0 0 60px rgba(255, 255, 255, 0.9);
+            animation: fadein 2s;
+        }
+        @keyframes fadein {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .dream-animation {
+            animation: floating 6s infinite;
+        }
+        @keyframes floating {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0); }
+        }
+        .blur {
+            filter: blur(5px);
+            transition: filter 0.5s;
+        }
+        .blur:hover {
+            filter: blur(0);
+        }
+    </style>
+</head>
+<body>
+    <h1 class="dream-animation">Welcome to the Divine Titan: Soul Sea</h1>
+    <div class="blur">
+        <p>Immerse yourself in the rich mythology of the Shadow Slave and the essence of divine dreams.</p>
+    </div>
+    <script>
+        // Dreamlike animations here
+        setInterval(function() {
+            document.body.style.background = '\n                linear-gradient(to bottom, #26a0da, #cafffb)';
+        }, 5000);
+    </script>
+</body>
+</html>

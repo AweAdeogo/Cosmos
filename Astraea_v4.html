@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASTRAEA - Celestial Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Josefin+Sans:wght@100;200;300&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --void:       #050308;
+            --deep:       #0a0614;
+            --indigo:     #160d38;
+            --violet:     #261560;
+            --rose-gold:  #eab8a8;
+            --gold:       #d8b080;
+            --silver:     #d0dff0;
+            --lavender:   #c0aee8;
+            --mist:       rgba(190,165,235,0.06);
+            --glass:      rgba(8,5,18,0.55);
+            --glass-edge: rgba(200,170,240,0.12);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Josefin Sans', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background: var(--void);
+            color: var(--silver);
+            cursor: crosshair;
+        }
+
+        /* Nebula canvas behind Three.js */
+        #nebula-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background:
+                radial-gradient(ellipse 90% 70% at 15% 25%, rgba(55,25,120,0.65) 0%, transparent 60%),
+                radial-gradient(ellipse 70% 55% at 85% 65%, rgba(110,25,90,0.45) 0%, transparent 55%),
+                radial-gradient(ellipse 55% 45% at 55% 5%,  rgba(18,35,100,0.55) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 60% at 5%  85%, rgba(10,8,35,0.9)   0%, transparent 65%),
+                radial-gradient(ellipse 40% 35% at 70% 20%, rgba(80,20,110,0.3) 0%, transparent 50%),
+                linear-gradient(168deg, #0b0615 0%, #060409 45%, #080510 100%);
+        }
+
+        /* Animated soft nebula wisps */
+        #nebula-bg::before {
+            content: '';
+            position: absolute;
+            inset: -20%;
+            background:
+                radial-gradient(ellipse 50% 30% at 30% 60%, rgba(100,50,180,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 40% 25% at 70% 35%, rgba(180,60,120,0.09) 0%, transparent 55%);
+            animation: nebulaFloat 28s ease-in-out infinite alternate;
+        }
+
+        #nebula-bg::after {
+            content: '';
+            position: absolute;
+            inset: -15%;
+            background:
+                radial-gradient(ellipse 45% 28% at 60% 70%, rgba(60,30,140,0.10) 0%, transparent 55%),
+                radial-gradient(ellipse 35% 22% at 20% 40%, rgba(140,40,100,0.08) 0%, transparent 50%);
+            animation: nebulaFloat 38s ease-in-out infinite alternate-reverse;
+            mix-blend-mode: screen;
+        }
+
+        @keyframes nebulaFloat {
+            0%   { transform: translate(0,    0)    scale(1);    opacity: 0.7; }
+            33%  { transform: translate(3%,  -2%)   scale(1.04); opacity: 1;   }
+            66%  { transform: translate(-2%,  3%)   scale(0.97); opacity: 0.85;}
+            100% { transform: translate(2%,   1%)   scale(1.02); opacity: 1;   }
+        }
+
+        #loading-screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--void);
+            z-index: 9999;
+            transition: opacity 1s ease;
+        }
+
+        .loading-title {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 2rem;
+            font-weight: 300;
+            letter-spacing: 0.6em;
+            color: var(--rose-gold);
+            text-shadow: 0 0 40px rgba(234,184,168,0.45), 0 0 80px rgba(180,120,220,0.2);
+            margin-bottom: 1.2rem;
+        }
+
+        .loading-sub {
+            font-family: 'Josefin Sans', sans-serif;
+            font-size: 0.6rem;
+            letter-spacing: 0.45em;
+            color: var(--lavender);
+            opacity: 0.5;
+            margin-bottom: 2.2rem;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes breathe {
+            0%, 100% { opacity: 0.4; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+
+        .spinner {
+            animation: spin 3s linear infinite;
+            border-radius: 50%;
+            border: 1px solid rgba(180,160,220,0.15);
+            border-top-color: var(--rose-gold);
+            border-right-color: rgba(212,165,116,0.4);
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .mask-fade-edges {
+            mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
+        }
+
+        /* Glass panel style */
+        .glass {
+            background: var(--glass);
+            border: 1px solid var(--glass-edge);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* Range input */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            background: rgba(180,160,220,0.12);
+            height: 2px;
+            border-radius: 1px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: var(--rose-gold);
+            margin-top: -6px;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(232,180,160,0.5);
+        }
+
+        /* Title glow */
+        .title-glow {
+            text-shadow:
+                0 0 30px rgba(234,184,168,0.4),
+                0 0 80px rgba(180,130,220,0.2),
+                0 0 140px rgba(140,90,200,0.08);
+        }
+
+        /* Smooth button transitions */
+        button { transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+        /* Subtle mist on panels */
+        .panel-mist {
+            box-shadow:
+                0 0 0 1px rgba(200,170,240,0.08),
+                0 8px 40px rgba(0,0,0,0.55),
+                inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Nebula atmosphere layer -->
+    <div id="nebula-bg"></div>
+
+    <!-- Loading screen -->
+    <div id="loading-screen">
+        <div style="text-align:center;">
+            <p class="loading-title">ASTRAEA</p>
+            <p class="loading-sub">Celestial Explorer</p>
+            <div class="spinner" style="width:56px;height:56px;margin:0 auto;"></div>
+        </div>
+    </div>
+
+    <div id="root"></div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "three": "https://esm.sh/three@0.160.0",
+            "three/examples/jsm/controls/OrbitControls.js": "https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import React, { useEffect, useRef, useState, useCallback } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+        // ── Inline SVG icons ────────────────────────────────────────────────
+        const Icon = ({ d, size = 18, strokeWidth = 1.2 }) => React.createElement('svg', {
+            xmlns: 'http://www.w3.org/2000/svg', width: size, height: size,
+            viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+            strokeWidth, strokeLinecap: 'round', strokeLinejoin: 'round'
+        }, React.createElement('path', { d }));
+
+        const Icons = {
+            Settings: () => React.createElement(Icon, { d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm6.93-3a6.001 6.001 0 0 0-1.745-4.165l1.04-1.04-1.415-1.414-1.04 1.04A6 6 0 0 0 12 5.07V3.6h-2v1.47a6.001 6.001 0 0 0-3.765 1.751l-1.04-1.04L3.78 7.196l1.04 1.04A6.001 6.001 0 0 0 3.07 12H1.6v2h1.47a6.001 6.001 0 0 0 1.751 3.765l-1.04 1.04 1.415 1.414 1.04-1.04A6 6 0 0 0 10 20.93V22.4h2v-1.47a6.001 6.001 0 0 0 3.765-1.751l1.04 1.04 1.414-1.415-1.04-1.04A6.001 6.001 0 0 0 18.93 14H20.4v-2h-1.47z' }),
+            Info: () => React.createElement(Icon, { d: 'M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm0-2a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm-1-5h2v2h-2v-2zm0-8h2v6h-2V7z' }),
+            Music: () => React.createElement(Icon, { d: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0z' }),
+            Upload: () => React.createElement(Icon, { d: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12' }),
+            Play: () => React.createElement(Icon, { d: 'M5 3l14 9-14 9V3z' }),
+            Pause: () => React.createElement(Icon, { d: 'M6 4h4v16H6zM14 4h4v16h-4z' }),
+            X: () => React.createElement(Icon, { d: 'M18 6L6 18M6 6l12 12' }),
+            Star: ({ size = 18 }) => React.createElement(Icon, { size, d: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' }),
+        };
+
+        // Map a star's spectral feel to a color — driven by magnitude (brightness)
+        // Brightest stars (low magnitude) get a warm white or blue-white core
+        // Dimmer stars shift toward lavender, gold, or rose
+        function starColor(magnitude, seed) {
+            // Simple deterministic pseudo-random from seed
+            const r1 = Math.abs(Math.sin(seed * 127.1 + 311.7));
+            const r2 = Math.abs(Math.sin(seed * 269.5 + 183.3));
+
+            if (magnitude <= 1.0) {
+                // Brilliant — pure blue-white or ice blue
+                return r1 < 0.5
+                    ? new THREE.Color(0.90, 0.95, 1.00)   // blue-white
+                    : new THREE.Color(0.78, 0.88, 1.00);  // ice blue
+            } else if (magnitude <= 2.0) {
+                // Bright — warm white with a hint of gold or violet
+                if (r1 < 0.33)      return new THREE.Color(1.00, 0.97, 0.90);  // warm white
+                else if (r1 < 0.66) return new THREE.Color(0.85, 0.90, 1.00);  // cool white
+                else                return new THREE.Color(1.00, 0.92, 0.78);  // golden-white
+            } else if (magnitude <= 3.0) {
+                // Medium — lavender, soft gold, pale rose
+                if (r2 < 0.33)      return new THREE.Color(0.80, 0.72, 1.00);  // lavender
+                else if (r2 < 0.66) return new THREE.Color(1.00, 0.85, 0.65);  // golden
+                else                return new THREE.Color(0.95, 0.78, 0.85);  // rose
+            } else {
+                // Faint — muted lavender or dusty rose
+                return r1 < 0.5
+                    ? new THREE.Color(0.68, 0.60, 0.90)   // dim lavender
+                    : new THREE.Color(0.85, 0.70, 0.78);  // dim rose
+            }
+        }
+
+        // Scale based on magnitude: brighter = larger sprite
+        function starScale(magnitude, isFirst) {
+            if (isFirst) return Math.max(18, 28 - magnitude * 3);
+            const base = Math.max(10, 22 - magnitude * 3);
+            return base;
+        }
+
+        // Constellation line color: soft rose-gold
+        const LINE_COLOR = 0xd4a090;
+
+        // Star sprite: bright core → warm blush → violet halo → diffraction cross
+        function makeStarTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            const cx = 128, cy = 128;
+
+            // Outer halo — wide violet mist
+            const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, 128);
+            halo.addColorStop(0.00, 'rgba(255,255,255,0)');
+            halo.addColorStop(0.25, 'rgba(180,140,230,0.04)');
+            halo.addColorStop(0.55, 'rgba(120,80,200,0.08)');
+            halo.addColorStop(0.80, 'rgba(80,40,160,0.05)');
+            halo.addColorStop(1.00, 'rgba(0,0,0,0)');
+            ctx.fillStyle = halo; ctx.fillRect(0, 0, 256, 256);
+
+            // Mid glow — warm rose-gold
+            const mid = ctx.createRadialGradient(cx, cy, 0, cx, cy, 60);
+            mid.addColorStop(0.00, 'rgba(255,255,255,0)');
+            mid.addColorStop(0.10, 'rgba(255,230,210,0.5)');
+            mid.addColorStop(0.35, 'rgba(220,170,200,0.25)');
+            mid.addColorStop(0.65, 'rgba(160,110,220,0.10)');
+            mid.addColorStop(1.00, 'rgba(0,0,0,0)');
+            ctx.fillStyle = mid; ctx.fillRect(0, 0, 256, 256);
+
+            // Core — pure white
+            const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, 18);
+            core.addColorStop(0.00, 'rgba(255,255,255,1.0)');
+            core.addColorStop(0.30, 'rgba(255,248,235,0.95)');
+            core.addColorStop(0.70, 'rgba(240,220,255,0.5)');
+            core.addColorStop(1.00, 'rgba(0,0,0,0)');
+            ctx.fillStyle = core; ctx.fillRect(0, 0, 256, 256);
+
+            // Subtle diffraction spike — horizontal
+            ctx.save();
+            const spike = ctx.createLinearGradient(0, cy, 256, cy);
+            spike.addColorStop(0.00, 'rgba(255,255,255,0)');
+            spike.addColorStop(0.35, 'rgba(255,240,255,0.04)');
+            spike.addColorStop(0.50, 'rgba(255,255,255,0.18)');
+            spike.addColorStop(0.65, 'rgba(255,240,255,0.04)');
+            spike.addColorStop(1.00, 'rgba(255,255,255,0)');
+            ctx.fillStyle = spike;
+            ctx.fillRect(0, cy - 2, 256, 4);
+            ctx.restore();
+
+            // Subtle diffraction spike — vertical
+            ctx.save();
+            const spikeV = ctx.createLinearGradient(cx, 0, cx, 256);
+            spikeV.addColorStop(0.00, 'rgba(255,255,255,0)');
+            spikeV.addColorStop(0.35, 'rgba(255,240,255,0.04)');
+            spikeV.addColorStop(0.50, 'rgba(255,255,255,0.14)');
+            spikeV.addColorStop(0.65, 'rgba(255,240,255,0.04)');
+            spikeV.addColorStop(1.00, 'rgba(255,255,255,0)');
+            ctx.fillStyle = spikeV;
+            ctx.fillRect(cx - 2, 0, 4, 256);
+            ctx.restore();
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        const CONSTELLATIONS = {
+          ursaMajor: {
+            name: 'URSA MAJOR',
+            description: 'The Great Bear, containing the Big Dipper asterism.',
+            points: [[-40, 20, 0], [-20, 25, 0], [0, 10, 0], [10, -5, 0], [30, -10, 0], [45, 15, 0], [15, 35, 0]],
+            links: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 2]],
+            stars: [
+              { name: 'Dubhe', magnitude: 1.8, properties: 'Alpha Ursae Majoris, giant star' },
+              { name: 'Merak', magnitude: 2.4, properties: 'Beta Ursae Majoris, main sequence' },
+              { name: 'Phecda', magnitude: 2.4, properties: 'Gamma Ursae Majoris' },
+              { name: 'Megrez', magnitude: 3.3, properties: 'Delta Ursae Majoris' },
+              { name: 'Alioth', magnitude: 1.8, properties: 'Epsilon Ursae Majoris' },
+              { name: 'Mizar', magnitude: 2.2, properties: 'Zeta Ursae Majoris, binary system' },
+              { name: 'Alkaid', magnitude: 1.9, properties: 'Eta Ursae Majoris' }
+            ]
+          },
+          orion: {
+            name: 'ORION',
+            description: 'The Hunter, one of the most recognizable constellations.',
+            points: [[-10, 40, 0], [10, 38, 0], [-5, 10, 0], [5, 8, 0], [0, 9, 0], [-15, -30, 0], [15, -35, 0]],
+            links: [[0, 2], [1, 3], [2, 4], [4, 3], [2, 5], [3, 6]],
+            stars: [
+              { name: 'Betelgeuse', magnitude: 0.4, properties: 'Red supergiant' },
+              { name: 'Bellatrix', magnitude: 1.6, properties: 'Blue giant' },
+              { name: 'Mintaka', magnitude: 2.2, properties: 'Delta Orionis' },
+              { name: 'Alnilam', magnitude: 1.7, properties: 'Epsilon Orionis' },
+              { name: 'Alnitak', magnitude: 1.8, properties: 'Zeta Orionis' },
+              { name: 'Saiph', magnitude: 2.1, properties: 'Kappa Orionis' },
+              { name: 'Rigel', magnitude: 0.1, properties: 'Blue supergiant' }
+            ]
+          },
+          cassiopeia: {
+            name: 'CASSIOPEIA',
+            description: 'The Queen, recognizable by its distinct W shape.',
+            points: [[-40, 20, 0], [-20, -10, 0], [0, 15, 0], [20, -10, 0], [40, 20, 0]],
+            links: [[0, 1], [1, 2], [2, 3], [3, 4]],
+            stars: [
+              { name: 'Caph', magnitude: 2.3, properties: 'Beta Cassiopeiae' },
+              { name: 'Schedar', magnitude: 2.2, properties: 'Alpha Cassiopeiae' },
+              { name: 'Tsih', magnitude: 2.1, properties: 'Gamma Cassiopeiae' },
+              { name: 'Ruchbah', magnitude: 2.7, properties: 'Delta Cassiopeiae' },
+              { name: 'Segin', magnitude: 3.4, properties: 'Epsilon Cassiopeiae' }
+            ]
+          },
+          ursaMinor: {
+            name: 'URSA MINOR',
+            description: 'The Little Bear, containing Polaris, the North Star.',
+            points: [[0, 80, 0], [5, 70, 0], [15, 65, 0], [25, 60, 0], [35, 70, 0], [40, 85, 0], [30, 90, 0]],
+            links: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]],
+            stars: [
+              { name: 'Polaris', magnitude: 2.0, properties: 'The North Star' },
+              { name: 'Yildun', magnitude: 4.3, properties: 'Delta Ursae Minoris' },
+              { name: 'Epsilon UMi', magnitude: 4.2, properties: 'Epsilon Ursae Minoris' },
+              { name: 'Zeta UMi', magnitude: 4.3, properties: 'Zeta Ursae Minoris' },
+              { name: 'Eta UMi', magnitude: 4.9, properties: 'Eta Ursae Minoris' },
+              { name: 'Kochab', magnitude: 2.1, properties: 'Beta Ursae Minoris' },
+              { name: 'Pherkad', magnitude: 3.0, properties: 'Gamma Ursae Minoris' }
+            ]
+          },
+          leo: {
+            name: 'LEO',
+            description: 'The Lion, associated with the Nemean Lion of Greek myth.',
+            points: [[-30, 0, 0], [-10, 5, 0], [10, 0, 0], [20, -15, 0], [0, -20, 0], [-20, -15, 0], [-35, 20, 0], [-25, 35, 0], [-10, 30, 0]],
+            links: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [0, 6], [6, 7], [7, 8], [8, 1]],
+            stars: [
+              { name: 'Regulus', magnitude: 1.4, properties: 'Alpha Leonis' },
+              { name: 'Eta Leonis', magnitude: 3.5, properties: 'Eta Leonis' },
+              { name: 'Algieba', magnitude: 2.0, properties: 'Gamma Leonis' },
+              { name: 'Adhafera', magnitude: 3.4, properties: 'Zeta Leonis' },
+              { name: 'Zosma', magnitude: 2.6, properties: 'Delta Leonis' },
+              { name: 'Chertan', magnitude: 3.3, properties: 'Theta Leonis' },
+              { name: 'Denebola', magnitude: 2.1, properties: 'Beta Leonis' },
+              { name: 'Rasalas', magnitude: 3.9, properties: 'Mu Leonis' },
+              { name: 'Alterf', magnitude: 4.3, properties: 'Lambda Leonis' }
+            ]
+          },
+          cygnus: {
+            name: 'CYGNUS',
+            description: 'The Swan, also known as the Northern Cross.',
+            points: [[0, 40, 0], [0, 10, 0], [0, -30, 0], [-25, 15, 0], [25, 15, 0]],
+            links: [[0, 1], [1, 2], [1, 3], [1, 4]],
+            stars: [
+              { name: 'Deneb', magnitude: 1.3, properties: 'Alpha Cygni, supergiant' },
+              { name: 'Sadr', magnitude: 2.2, properties: 'Gamma Cygni' },
+              { name: 'Albireo', magnitude: 3.1, properties: 'Beta Cygni, binary' },
+              { name: 'Fawaris', magnitude: 2.5, properties: 'Delta Cygni' },
+              { name: 'Gienah', magnitude: 2.5, properties: 'Epsilon Cygni' }
+            ]
+          },
+          scorpius: {
+            name: 'SCORPIUS',
+            description: 'The Scorpion, containing the bright red star Antares.',
+            points: [[0, 20, 0], [-10, 25, 0], [-15, 35, 0], [-5, 10, 0], [5, 0, 0], [10, -15, 0], [5, -25, 0], [-5, -30, 0], [-15, -25, 0]],
+            links: [[2, 1], [1, 0], [0, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8]],
+            stars: [
+              { name: 'Antares', magnitude: 1.1, properties: 'Alpha Scorpii, red supergiant' },
+              { name: 'Graffias', magnitude: 2.6, properties: 'Beta Scorpii' },
+              { name: 'Dschubba', magnitude: 2.3, properties: 'Delta Scorpii' },
+              { name: 'Sargas', magnitude: 1.9, properties: 'Theta Scorpii' },
+              { name: 'Shaula', magnitude: 1.6, properties: 'Lambda Scorpii' },
+              { name: 'Girtab', magnitude: 2.4, properties: 'Kappa Scorpii' },
+              { name: 'Larawag', magnitude: 2.7, properties: 'Epsilon Scorpii' },
+              { name: 'Wei', magnitude: 2.3, properties: 'Zeta Scorpii' },
+              { name: 'Lesath', magnitude: 2.7, properties: 'Upsilon Scorpii' }
+            ]
+          },
+          crux: {
+            name: 'CRUX',
+            description: 'The Southern Cross, the smallest of the 88 constellations.',
+            points: [[0, 20, 0], [0, -20, 0], [-10, 0, 0], [10, 0, 0]],
+            links: [[0, 1], [2, 3]],
+            stars: [
+              { name: 'Gacrux', magnitude: 1.6, properties: 'Gamma Crucis' },
+              { name: 'Acrux', magnitude: 0.8, properties: 'Alpha Crucis' },
+              { name: 'Mimosa', magnitude: 1.3, properties: 'Beta Crucis' },
+              { name: 'Imai', magnitude: 2.8, properties: 'Delta Crucis' }
+            ]
+          },
+          lyra: {
+            name: 'LYRA',
+            description: 'The Lyre, representing the instrument of Orpheus.',
+            points: [[0, 30, 0], [-10, 15, 0], [10, 15, 0], [-10, -5, 0], [10, -5, 0]],
+            links: [[0, 1], [0, 2], [1, 2], [1, 3], [2, 4], [3, 4]],
+            stars: [
+              { name: 'Vega', magnitude: 0.0, properties: 'Alpha Lyrae, very bright' },
+              { name: 'Sheliak', magnitude: 3.5, properties: 'Beta Lyrae' },
+              { name: 'Sulafat', magnitude: 3.2, properties: 'Gamma Lyrae' },
+              { name: 'Delta Lyrae', magnitude: 4.2, properties: 'Delta Lyrae' },
+              { name: 'Zeta Lyrae', magnitude: 4.3, properties: 'Zeta Lyrae' }
+            ]
+          }
+        };
+
+        function App() {
+          const canvasRef = useRef(null);
+          const audioRef = useRef(null);
+          const [currentKey, setCurrentKey] = useState('ursaMajor');
+          const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+          const [soundtrackName, setSoundtrackName] = useState('None');
+          const [showInfo, setShowInfo] = useState(false);
+          const [showSettings, setShowSettings] = useState(false);
+          const [starDensity, setStarDensity] = useState(10000);
+          const [isSceneReady, setIsSceneReady] = useState(false);
+          const [isSoundtrackOpen, setIsSoundtrackOpen] = useState(false);
+          const [hoveredKey, setHoveredKey] = useState(null);
+          const [hoveredStar, setHoveredStar] = useState(null);
+          const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+          const sceneRef = useRef(null);
+          const starGroupRef = useRef(null);
+          const lineGroupRef = useRef(null);
+          const bgStarsRef = useRef(null);
+          const rendererRef = useRef(null);
+          const textureRef = useRef(null);
+
+          const getTexture = () => {
+            if (textureRef.current) return textureRef.current;
+            const tex = makeStarTexture();
+            textureRef.current = tex;
+            return tex;
+          };
+
+          const updateConstellation = useCallback((key) => {
+            const starGroup = starGroupRef.current;
+            const lineGroup = lineGroupRef.current;
+            if (!starGroup || !lineGroup) return;
+            const data = CONSTELLATIONS[key];
+            if (!data) return;
+
+            starGroup.children.forEach(c => { c.userData.fadingOut = true; c.userData.fadingIn = false; });
+            lineGroup.children.forEach(c => { c.userData.fadingOut = true; c.userData.fadingIn = false; });
+
+            const texture = getTexture();
+            const points = data.points.map(p => new THREE.Vector3(...p));
+
+            points.forEach((pos, idx) => {
+              const starData = data.stars[idx];
+              const mag  = starData ? starData.magnitude : 2.5;
+              // Use star name + idx as a stable seed so colors are consistent per star
+              const seed = idx + (starData ? starData.name.charCodeAt(0) * 0.01 : 0);
+              const col   = starColor(mag, seed);
+              const scale = starScale(mag, idx === 0);
+
+              const material = new THREE.SpriteMaterial({
+                map: texture,
+                color: col,
+                blending: THREE.AdditiveBlending,
+                transparent: true, opacity: 0, depthTest: false, depthWrite: false
+              });
+              const sprite = new THREE.Sprite(material);
+              sprite.position.copy(pos);
+              sprite.scale.set(scale, scale, 1);
+              sprite.userData.baseScale = scale;
+              sprite.userData.targetOpacity = 1;
+              sprite.userData.fadingIn = true;
+              sprite.userData.fadingOut = false;
+              sprite.userData.starIndex = idx;
+              // Each star gets its own random twinkle signature
+              sprite.userData.twinklePhase = Math.abs(Math.sin(seed * 43.7)) * Math.PI * 2;
+              sprite.userData.twinkleFreq  = 0.7 + Math.abs(Math.sin(seed * 91.3)) * 1.4;
+              sprite.userData.twinkleAmp   = 0.05 + Math.abs(Math.sin(seed * 57.1)) * 0.10;
+              starGroup.add(sprite);
+            });
+
+            data.links.forEach(link => {
+              const lineMat = new THREE.LineBasicMaterial({
+                color: LINE_COLOR, transparent: true, opacity: 0, linewidth: 1,
+                depthTest: false, depthWrite: false
+              });
+              const geom = new THREE.BufferGeometry().setFromPoints([points[link[0]], points[link[1]]]);
+              const line = new THREE.Line(geom, lineMat);
+              line.userData.targetOpacity = 0.22;
+              line.userData.fadingIn = true;
+              line.userData.fadingOut = false;
+              lineGroup.add(line);
+            });
+            setCurrentKey(key);
+          }, []);
+
+          useEffect(() => {
+            if (!canvasRef.current) return;
+            const scene = new THREE.Scene();
+            sceneRef.current = scene;
+
+            const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
+            camera.position.z = 250;
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(0x000000, 0); // transparent — nebula bg shows through
+            canvasRef.current.appendChild(renderer.domElement);
+            rendererRef.current = renderer;
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.04;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.15;
+            controls.enableZoom = true;
+            controls.zoomSpeed = 0.7;
+
+            const starGroup = new THREE.Group();
+            const lineGroup = new THREE.Group();
+            starGroup.renderOrder = 10; lineGroup.renderOrder = 5;
+            starGroupRef.current = starGroup; lineGroupRef.current = lineGroup;
+            scene.add(starGroup); scene.add(lineGroup);
+
+            // Raycaster for hover
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            const onMouseMove = (event) => {
+              mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+              mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+              setMousePos({ x: event.clientX, y: event.clientY });
+              raycaster.setFromCamera(mouse, camera);
+              if (starGroupRef.current) {
+                const activeStars = starGroupRef.current.children.filter(c => !c.userData.fadingOut);
+                const intersects = raycaster.intersectObjects(activeStars);
+                if (intersects.length > 0) {
+                  const obj = intersects[0].object;
+                  if (obj.userData.starIndex !== undefined) setHoveredStar(obj.userData.starIndex);
+                } else setHoveredStar(null);
+              }
+            };
+            window.addEventListener('mousemove', onMouseMove);
+
+            const animate = () => {
+              requestAnimationFrame(animate);
+              const time = Date.now() * 0.001;
+
+              // Gentle nebula-like rotation of background stars
+              if (bgStarsRef.current) {
+                bgStarsRef.current.rotation.y += 0.00006;
+                bgStarsRef.current.rotation.x += 0.00002;
+                // Slow global breathe
+                bgStarsRef.current.material.opacity = 0.48 + Math.sin(time * 0.18) * 0.07;
+              }
+
+              // Twinkle: each constellation star has its own random phase + frequency
+              if (starGroupRef.current) {
+                starGroupRef.current.children.forEach((child) => {
+                  if (!(child instanceof THREE.Sprite)) return;
+                  if (child.userData.fadingOut) return;
+                  const phase = child.userData.twinklePhase || 0;
+                  const freq  = child.userData.twinkleFreq  || 1.2;
+                  const amp   = child.userData.twinkleAmp   || 0.08;
+                  const base  = child.userData.baseScale    || 14;
+
+                  // Layered twinkle: primary wave + subtle high-freq shimmer
+                  const t1 = Math.sin(time * freq        + phase);
+                  const t2 = Math.sin(time * freq * 2.3  + phase * 1.7) * 0.35;
+                  const tw = t1 + t2;
+
+                  const scaleMod   = 1 + tw * amp;
+                  const opacityMod = tw * amp * 0.5; // opacity shimmers alongside scale
+
+                  child.scale.set(base * scaleMod, base * scaleMod, 1);
+
+                  // Only modulate opacity once fully faded in
+                  if (!child.userData.fadingIn) {
+                    const target = child.userData.targetOpacity || 1;
+                    child.material.opacity = Math.max(0.2, target + opacityMod);
+                  }
+                });
+              }
+
+              // Smooth fade in/out
+              const fadeSpeed = 0.014;
+              [starGroupRef.current, lineGroupRef.current].forEach(group => {
+                if (!group) return;
+                for (let i = group.children.length - 1; i >= 0; i--) {
+                  const child = group.children[i];
+                  const mat = child.material;
+                  if (!mat) continue;
+                  if (child.userData.fadingOut) {
+                    mat.opacity -= fadeSpeed;
+                    if (mat.opacity <= 0) group.remove(child);
+                  } else if (child.userData.fadingIn) {
+                    const target = child.userData.targetOpacity || 1;
+                    mat.opacity = Math.min(mat.opacity + fadeSpeed, target);
+                    if (mat.opacity >= target) child.userData.fadingIn = false;
+                  }
+                }
+              });
+
+              controls.update();
+              renderer.render(scene, camera);
+            };
+            animate();
+
+            const handleResize = () => {
+              camera.aspect = window.innerWidth / window.innerHeight;
+              camera.updateProjectionMatrix();
+              renderer.setSize(window.innerWidth, window.innerHeight);
+            };
+            window.addEventListener('resize', handleResize);
+
+            // Fade out loading screen
+            setTimeout(() => {
+              const loader = document.getElementById('loading-screen');
+              if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 800); }
+              setIsSceneReady(true);
+            }, 900);
+
+            return () => {
+              window.removeEventListener('resize', handleResize);
+              window.removeEventListener('mousemove', onMouseMove);
+              renderer.dispose();
+              if (canvasRef.current && renderer.domElement.parentNode === canvasRef.current) {
+                canvasRef.current.removeChild(renderer.domElement);
+              }
+            };
+          }, []);
+
+          useEffect(() => { if (isSceneReady) updateConstellation('ursaMajor'); }, [isSceneReady, updateConstellation]);
+
+          // Background star field — mixed fantasy colors
+          useEffect(() => {
+            if (!isSceneReady || !sceneRef.current) return;
+            const scene = sceneRef.current;
+            if (bgStarsRef.current) scene.remove(bgStarsRef.current);
+
+            const bgGeometry = new THREE.BufferGeometry();
+            const bgVertices = [], bgColors = [], bgSizes = [];
+
+            for (let i = 0; i < starDensity; i++) {
+              bgVertices.push(
+                (Math.random() - 0.5) * 2400,
+                (Math.random() - 0.5) * 2400,
+                (Math.random() - 0.5) * 2400
+              );
+              // Weighted fantasy palette for background stars
+              const r  = Math.random();
+              const br = 0.55 + Math.random() * 0.45; // brightness
+              let cr, cg, cb;
+              if      (r < 0.30) { cr=0.88; cg=0.93; cb=1.00; }  // blue-white
+              else if (r < 0.50) { cr=1.00; cg=0.97; cb=0.90; }  // warm white
+              else if (r < 0.64) { cr=0.80; cg=0.72; cb=1.00; }  // lavender
+              else if (r < 0.76) { cr=1.00; cg=0.88; cb=0.68; }  // golden
+              else if (r < 0.88) { cr=0.72; cg=0.86; cb=1.00; }  // ice blue
+              else               { cr=0.95; cg=0.76; cb=0.86; }  // rose (rare)
+              bgColors.push(cr * br, cg * br, cb * br);
+            }
+
+            bgGeometry.setAttribute('position', new THREE.Float32BufferAttribute(bgVertices, 3));
+            bgGeometry.setAttribute('color', new THREE.Float32BufferAttribute(bgColors, 3));
+
+            const bgMaterial = new THREE.PointsMaterial({
+              size: 1.1, vertexColors: true, transparent: true,
+              opacity: 0.55, sizeAttenuation: true
+            });
+            const bgStars = new THREE.Points(bgGeometry, bgMaterial);
+            bgStarsRef.current = bgStars;
+            scene.add(bgStars);
+          }, [starDensity, isSceneReady]);
+
+          const handleFileUpload = (ev) => {
+            const file = ev.target.files?.[0];
+            if (file && audioRef.current) {
+              audioRef.current.src = URL.createObjectURL(file);
+              setSoundtrackName(file.name);
+              audioRef.current.play(); setIsAudioPlaying(true);
+            }
+          };
+
+          const toggleAudio = () => {
+            if (audioRef.current) {
+              if (isAudioPlaying) audioRef.current.pause();
+              else audioRef.current.play().catch(() => {});
+              setIsAudioPlaying(!isAudioPlaying);
+            }
+          };
+
+          const e = React.createElement;
+          const cx = (...cls) => cls.filter(Boolean).join(' ');
+
+          // ── Shared inline styles ──────────────────────────────────────────
+          const S = {
+            glass: {
+              background: 'var(--glass)',
+              border: '1px solid var(--glass-edge)',
+              backdropFilter: 'blur(28px)',
+              WebkitBackdropFilter: 'blur(28px)',
+              boxShadow: '0 0 0 1px rgba(200,170,240,0.05), 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.035)'
+            },
+            roseText: { color: 'var(--rose-gold)' },
+            lavText:  { color: 'var(--lavender)', opacity: 0.6 },
+            silverText: { color: 'var(--silver)' },
+            goldText: { color: 'var(--gold)' },
+          };
+
+          return e('div', { style: { position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', fontFamily: "'Josefin Sans', sans-serif", color: 'var(--silver)' } },
+
+            // Three.js canvas (alpha, sits over nebula-bg CSS layer)
+            e('div', { ref: canvasRef, style: { position: 'absolute', inset: 0, zIndex: 1 } }),
+
+            // ── Star hover tooltip ──────────────────────────────────────────
+            hoveredStar !== null && CONSTELLATIONS[currentKey]?.stars?.[hoveredStar] && e('div', {
+              style: {
+                position: 'fixed', left: mousePos.x, top: mousePos.y,
+                transform: 'translate(-50%, -125%)', zIndex: 200, pointerEvents: 'none',
+                ...S.glass,
+                borderRadius: '18px', padding: '14px 18px', width: '210px',
+                boxShadow: '0 12px 48px rgba(0,0,0,0.65), 0 0 30px rgba(180,130,240,0.07), inset 0 1px 0 rgba(255,255,255,0.04)'
+              }
+            },
+              e('p', { style: { fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.25em', color: 'var(--rose-gold)', marginBottom: '6px', fontWeight: 300 } },
+                CONSTELLATIONS[currentKey].stars[hoveredStar].name),
+              e('p', { style: { fontSize: '10px', color: 'rgba(200,216,232,0.75)', lineHeight: 1.6, marginBottom: '8px' } },
+                CONSTELLATIONS[currentKey].stars[hoveredStar].properties),
+              e('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                e('div', { style: { width: '4px', height: '4px', borderRadius: '50%', background: 'var(--rose-gold)', boxShadow: '0 0 6px var(--rose-gold)' } }),
+                e('span', { style: { fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--lavender)', opacity: 0.7 } },
+                  `Mag ${CONSTELLATIONS[currentKey].stars[hoveredStar].magnitude}`)
+              )
+            ),
+
+            // ── Main UI overlay ─────────────────────────────────────────────
+            e('div', { style: { position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '2.5rem 3rem' } },
+
+              // Header
+              e('header', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } },
+                e('div', {},
+                  e('h1', {
+                    style: {
+                      fontFamily: "'Cormorant Garamond', serif",
+                      fontSize: 'clamp(2rem, 4vw, 3.5rem)',
+                      fontWeight: 300,
+                      letterSpacing: '0.45em',
+                      color: 'var(--rose-gold)',
+                      textShadow: '0 0 20px rgba(234,184,168,0.5), 0 0 60px rgba(180,120,220,0.25), 0 0 120px rgba(140,80,200,0.12)',
+                      margin: 0, lineHeight: 1
+                    }
+                  }, 'ASTRAEA'),
+                  e('div', { style: { width: '80px', height: '1px', background: 'linear-gradient(to right, var(--rose-gold), transparent)', margin: '14px 0 10px', opacity: 0.5 } }),
+                  e('p', { style: { fontSize: '9px', letterSpacing: '0.35em', textTransform: 'uppercase', color: 'var(--lavender)', opacity: 0.7 } },
+                    CONSTELLATIONS[currentKey].name)
+                ),
+                e('div', { style: { pointerEvents: 'auto', display: 'flex', gap: '10px' } },
+                  e('button', {
+                    onClick: () => setShowSettings(!showSettings),
+                    style: {
+                      padding: '10px', borderRadius: '50%', cursor: 'pointer', transition: 'all 0.3s',
+                      color: showSettings ? 'var(--rose-gold)' : 'var(--lavender)',
+                      ...S.glass,
+                      ...(showSettings ? { borderColor: 'rgba(232,180,160,0.4)', boxShadow: '0 0 16px rgba(232,180,160,0.15)' } : {})
+                    }
+                  }, e(Icons.Settings)),
+                  e('button', {
+                    onClick: () => setShowInfo(!showInfo),
+                    style: { padding: '10px', borderRadius: '50%', cursor: 'pointer', transition: 'all 0.3s', color: 'var(--lavender)', ...S.glass }
+                  }, e(Icons.Info))
+                )
+              ),
+
+              // Footer
+              e('footer', { style: { display: 'flex', flexDirection: 'column', gap: '16px', pointerEvents: 'auto' } },
+                e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' } },
+
+                  // Soundtrack panel
+                  e('div', { style: { position: 'relative' } },
+                    e('div', {
+                      style: {
+                        ...S.glass, borderRadius: '20px', padding: '12px 16px',
+                        display: 'flex', alignItems: 'center', gap: '14px', minWidth: '280px',
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.5)'
+                      }
+                    },
+                      e('div', { style: { padding: '8px', borderRadius: '12px', background: 'rgba(232,180,160,0.08)', color: 'var(--rose-gold)' } }, e(Icons.Music)),
+                      e('div', { style: { flex: 1, overflow: 'hidden' } },
+                        e('p', { style: { fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--lavender)', opacity: 0.5, marginBottom: '4px' } }, 'Soundtrack'),
+                        e('p', { style: { fontSize: '12px', fontWeight: 200, letterSpacing: '0.05em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px', color: 'var(--silver)' } }, soundtrackName)
+                      ),
+                      e('div', { style: { display: 'flex', alignItems: 'center', gap: '6px' } },
+                        e('label', { style: { cursor: 'pointer', padding: '7px', borderRadius: '10px', color: 'var(--lavender)', transition: 'all 0.2s' } },
+                          e(Icons.Upload),
+                          e('input', { type: 'file', accept: 'audio/*', style: { display: 'none' }, onChange: handleFileUpload })
+                        ),
+                        e('button', {
+                          onClick: toggleAudio,
+                          style: { padding: '7px', borderRadius: '10px', background: 'rgba(232,180,160,0.1)', color: 'var(--rose-gold)', cursor: 'pointer', border: 'none', transition: 'all 0.2s' }
+                        }, isAudioPlaying ? e(Icons.Pause) : e(Icons.Play))
+                      )
+                    )
+                  ),
+
+                  // Constellation selector
+                  e('div', { style: { position: 'relative', flex: 1, maxWidth: '700px' } },
+                    // Preview tooltip
+                    hoveredKey && e('div', {
+                      style: {
+                        position: 'absolute', bottom: 'calc(100% + 12px)', left: '50%', transform: 'translateX(-50%)',
+                        width: '240px', ...S.glass, borderRadius: '16px', padding: '16px',
+                        pointerEvents: 'none', zIndex: 50,
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.5), 0 0 20px rgba(180,140,220,0.06)'
+                      }
+                    },
+                      e('p', { style: { fontSize: '9px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--rose-gold)', marginBottom: '8px' } }, CONSTELLATIONS[hoveredKey].name),
+                      e('p', { style: { fontSize: '11px', color: 'rgba(200,216,232,0.7)', lineHeight: 1.6, marginBottom: '10px', fontWeight: 200 } }, CONSTELLATIONS[hoveredKey].description),
+                      e('div', { style: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', color: 'var(--lavender)', opacity: 0.6 } },
+                        e(Icons.Star, { size: 10 }),
+                        e('span', { style: { letterSpacing: '0.2em', textTransform: 'uppercase' } }, `${CONSTELLATIONS[hoveredKey].points.length} Stars`)
+                      )
+                    ),
+                    // Scrollable pills
+                    e('div', {
+                      className: 'no-scrollbar mask-fade-edges',
+                      style: { display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '6px' }
+                    },
+                      Object.keys(CONSTELLATIONS).map(key =>
+                        e('button', {
+                          key,
+                          onClick: () => updateConstellation(key),
+                          onMouseEnter: () => setHoveredKey(key),
+                          onMouseLeave: () => setHoveredKey(null),
+                          style: {
+                            padding: '7px 16px', borderRadius: '100px',
+                            fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase',
+                            whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.3s',
+                            fontFamily: "'Josefin Sans', sans-serif", fontWeight: 200,
+                            ...(currentKey === key
+                              ? { background: 'rgba(232,180,160,0.1)', border: '1px solid rgba(232,180,160,0.45)', color: 'var(--rose-gold)', boxShadow: '0 0 16px rgba(232,180,160,0.12)' }
+                              : { background: 'rgba(180,160,220,0.04)', border: '1px solid rgba(180,160,220,0.1)', color: 'rgba(200,216,232,0.45)' }
+                            )
+                          }
+                        }, CONSTELLATIONS[key].name)
+                      )
+                    )
+                  )
+                )
+              )
+            ),
+
+            // ── Settings panel ──────────────────────────────────────────────
+            showSettings && e('div', {
+              style: {
+                position: 'absolute', top: '7rem', right: '3rem', zIndex: 40,
+                width: '240px', ...S.glass, borderRadius: '24px', padding: '24px',
+                pointerEvents: 'auto', boxShadow: '0 16px 60px rgba(0,0,0,0.6)'
+              }
+            },
+              e('h3', { style: { fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--lavender)', opacity: 0.65, marginBottom: '24px', fontWeight: 300 } }, 'Environment'),
+              e('div', {},
+                e('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' } },
+                  e('p', { style: { fontSize: '9px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--silver)', opacity: 0.6 } }, 'Star Density'),
+                  e('p', { style: { fontSize: '9px', fontFamily: 'monospace', color: 'var(--rose-gold)' } }, starDensity)
+                ),
+                e('input', {
+                  type: 'range', min: '5000', max: '15000', step: '500', value: starDensity,
+                  onChange: (ev) => setStarDensity(parseInt(ev.target.value)),
+                  style: { width: '100%' }
+                }),
+                e('div', { style: { display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(180,160,220,0.3)' } },
+                  e('span', {}, 'Sparse'), e('span', {}, 'Dense')
+                )
+              )
+            ),
+
+            // ── Info modal ──────────────────────────────────────────────────
+            showInfo && e('div', {
+              style: { position: 'absolute', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'rgba(6,4,9,0.85)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' },
+              onClick: () => setShowInfo(false)
+            },
+              e('div', {
+                style: {
+                  maxWidth: '520px', width: '100%',
+                  background: 'rgba(16,10,32,0.95)', border: '1px solid rgba(232,180,160,0.15)',
+                  borderRadius: '28px', padding: '36px',
+                  boxShadow: '0 24px 80px rgba(0,0,0,0.8), 0 0 40px rgba(180,140,220,0.06)'
+                },
+                onClick: ev => ev.stopPropagation()
+              },
+                // Icon + Title
+                e('div', { style: { display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '24px' } },
+                  e('div', { style: { padding: '16px', background: 'rgba(232,180,160,0.08)', borderRadius: '18px', color: 'var(--rose-gold)', border: '1px solid rgba(232,180,160,0.15)' } }, e(Icons.Star, { size: 28 })),
+                  e('div', {},
+                    e('h2', { style: { fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem', fontWeight: 300, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--rose-gold)', margin: 0 } }, CONSTELLATIONS[currentKey].name),
+                    e('p', { style: { fontSize: '10px', color: 'var(--lavender)', opacity: 0.55, letterSpacing: '0.15em', fontStyle: 'italic', marginTop: '4px' } }, 'Celestial Profile')
+                  )
+                ),
+                // Divider
+                e('div', { style: { height: '1px', background: 'linear-gradient(to right, transparent, rgba(232,180,160,0.3), transparent)', marginBottom: '24px' } }),
+                // Description
+                e('p', { style: { fontSize: '14px', fontWeight: 200, lineHeight: 1.8, color: 'rgba(200,216,232,0.75)', marginBottom: '28px', fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' } }, CONSTELLATIONS[currentKey].description),
+                // Stats
+                e('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '28px' } },
+                  e('div', { style: { padding: '18px', borderRadius: '16px', background: 'rgba(180,160,220,0.05)', border: '1px solid rgba(180,160,220,0.1)' } },
+                    e('p', { style: { fontSize: '8px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--lavender)', opacity: 0.5, marginBottom: '8px' } }, 'Stars'),
+                    e('p', { style: { fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', fontWeight: 300, color: 'var(--rose-gold)', lineHeight: 1 } }, CONSTELLATIONS[currentKey].points.length)
+                  ),
+                  e('div', { style: { padding: '18px', borderRadius: '16px', background: 'rgba(180,160,220,0.05)', border: '1px solid rgba(180,160,220,0.1)' } },
+                    e('p', { style: { fontSize: '8px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--lavender)', opacity: 0.5, marginBottom: '8px' } }, 'Connections'),
+                    e('p', { style: { fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', fontWeight: 300, color: 'var(--gold)', lineHeight: 1 } }, CONSTELLATIONS[currentKey].links.length)
+                  )
+                ),
+                // Close button
+                e('button', {
+                  onClick: () => setShowInfo(false),
+                  style: {
+                    width: '100%', padding: '14px', borderRadius: '16px', cursor: 'pointer',
+                    background: 'rgba(232,180,160,0.06)', border: '1px solid rgba(232,180,160,0.2)',
+                    color: 'var(--rose-gold)', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase',
+                    fontFamily: "'Josefin Sans', sans-serif", fontWeight: 200, transition: 'all 0.3s'
+                  }
+                }, 'Close the Observatory')
+              )
+            ),
+
+            e('audio', { ref: audioRef, loop: true, onEnded: () => setIsAudioPlaying(false) })
+          );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>

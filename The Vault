@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudRepo - Online File Repository</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white shadow-sm border-b sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-bold text-indigo-600 tracking-wide">CloudRepo</span>
+            </div>
+            
+            <!-- Auth & Upload Controls -->
+            <div class="flex items-center space-x-4">
+                <button id="navUploadBtn" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-medium transition duration-150">
+                    Upload File
+                </button>
+                <div id="authContainer" class="flex items-center space-x-2">
+                    <!-- Dynamic Auth buttons will insert here -->
+                    <button id="showAuthModalBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition duration-150">
+                        Sign In / Sign Up
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Dashboard Header & Search -->
+        <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">Shared Files</h1>
+                <p class="text-sm text-gray-500 mt-1">Browse and download public repository resources.</p>
+            </div>
+            <div class="relative w-full md:w-80">
+                <input type="text" id="searchInput" placeholder="Search by file title..." 
+                       class="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                <span class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-gray-400">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </span>
+            </div>
+        </div>
+
+        <!-- Files Grid Container -->
+        <div id="filesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="col-span-full py-12 text-center text-gray-500">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                Loading repository files...
+            </div>
+            <!-- File items are injected here by JS -->
+        </div>
+
+        <!-- Empty State Container -->
+        <div id="emptyState" class="hidden text-center py-16">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 13h6m-3-3v6m-9 1V4a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-950">No files found</h3>
+            <p class="mt-1 text-sm text-gray-500">Be the first to upload a resource or adjust your search filter.</p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-400">
+            &copy; 2026 CloudRepo. All rights reserved.
+        </div>
+    </footer>
+
+    <!-- Auth Modal (Log In / Sign Up) -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+            <button id="closeAuthModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <h2 id="modalTitle" class="text-xl font-bold mb-6 text-gray-900">Sign In</h2>
+            
+            <form id="authForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Email Address</label>
+                    <input type="email" id="authEmail" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Password</label>
+                    <input type="password" id="authPassword" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                
+                <p id="authError" class="text-red-500 text-xs hidden"></p>
+
+                <button type="submit" id="authSubmitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition duration-150">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="mt-4 pt-4 border-t text-center text-xs text-gray-500">
+                <span id="switchAuthPrompt">Don't have an account?</span>
+                <button id="switchAuthBtn" class="text-indigo-600 font-semibold hover:underline ml-1">Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+            <button id="closeUploadModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <h2 class="text-xl font-bold mb-6 text-gray-900">Upload New Resource</h2>
+            
+            <form id="uploadForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Resource Display Title</label>
+                    <input type="text" id="uploadTitle" required placeholder="e.g., Biology Lab Report 2026" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold uppercase text-gray-500 mb-1">Select File</label>
+                    <input type="file" id="uploadFileInput" required class="w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                </div>
+                
+                <!-- Progress bar -->
+                <div id="progressContainer" class="hidden w-full bg-gray-200 rounded-full h-2">
+                    <div id="progressBar" class="bg-indigo-600 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+
+                <p id="uploadError" class="text-red-500 text-xs hidden"></p>
+
+                <button type="submit" id="uploadSubmitBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg transition duration-150">
+                    Upload
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Integration and Core Logic -->
+    <script type="module">
+        // Import Firebase modules using modular Web SDK v10+ syntax
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signOut, 
+            onAuthStateChanged 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            onSnapshot, 
+            query, 
+            orderBy 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { 
+            getStorage, 
+            ref, 
+            uploadBytesResumable, 
+            getDownloadURL 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
+
+        // Placeholders for your Firebase credentials
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_AUTH_DOMAIN",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // Core State
+        let currentUser = null;
+        let isSignUpMode = false;
+        let filesData = [];
+
+        // DOM Elements
+        const authContainer = document.getElementById('authContainer');
+        const navUploadBtn = document.getElementById('navUploadBtn');
+        const showAuthModalBtn = document.getElementById('showAuthModalBtn');
+        const authModal = document.getElementById('authModal');
+        const closeAuthModal = document.getElementById('closeAuthModal');
+        const authForm = document.getElementById('authForm');
+        const authEmail = document.getElementById('authEmail');
+        const authPassword = document.getElementById('authPassword');
+        const authError = document.getElementById('authError');
+        const authSubmitBtn = document.getElementById('authSubmitBtn');
+        const modalTitle = document.getElementById('modalTitle');
+        const switchAuthPrompt = document.getElementById('switchAuthPrompt');
+        const switchAuthBtn = document.getElementById('switchAuthBtn');
+
+        const uploadModal = document.getElementById('uploadModal');
+        const closeUploadModal = document.getElementById('closeUploadModal');
+        const uploadForm = document.getElementById('uploadForm');
+        const uploadTitle = document.getElementById('uploadTitle');
+        const uploadFileInput = document.getElementById('uploadFileInput');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const uploadError = document.getElementById('uploadError');
+        const uploadSubmitBtn = document.getElementById('uploadSubmitBtn');
+
+        const filesGrid = document.getElementById('filesGrid');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const searchInput = document.getElementById('searchInput');
+        const emptyState = document.getElementById('emptyState');
+
+        // Toggle Modals
+        function openModal(modal) {
+            modal.classList.remove('hidden');
+        }
+        function closeModal(modal) {
+            modal.classList.add('hidden');
+            // Reset form fields and errors inside modal
+            const form = modal.querySelector('form');
+            if (form) form.reset();
+            const errorText = modal.querySelector('.text-red-500');
+            if (errorText) errorText.classList.add('hidden');
+            const progress = modal.querySelector('#progressContainer');
+            if (progress) progress.classList.add('hidden');
+        }
+
+        closeAuthModal.addEventListener('click', () => closeModal(authModal));
+        closeUploadModal.addEventListener('click', () => closeModal(uploadModal));
+        showAuthModalBtn.addEventListener('click', () => {
+            isSignUpMode = false;
+            updateAuthModalUI();
+            openModal(authModal);
+        });
+        navUploadBtn.addEventListener('click', () => openModal(uploadModal));
+
+        // Switch Auth State (Login / Signup)
+        switchAuthBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            isSignUpMode = !isSignUpMode;
+            updateAuthModalUI();
+        });
+
+        function updateAuthModalUI() {
+            authError.classList.add('hidden');
+            if (isSignUpMode) {
+                modalTitle.textContent = "Create Account";
+                authSubmitBtn.textContent = "Sign Up";
+                switchAuthPrompt.textContent = "Already have an account?";
+                switchAuthBtn.textContent = "Sign In";
+            } else {
+                modalTitle.textContent = "Sign In";
+                authSubmitBtn.textContent = "Sign In";
+                switchAuthPrompt.textContent = "Don't have an account?";
+                switchAuthBtn.textContent = "Sign Up";
+            }
+        }
+
+        // Handle Authentication Form Submission
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = authEmail.value;
+            const password = authPassword.value;
+            authError.classList.add('hidden');
+            authSubmitBtn.disabled = true;
+            authSubmitBtn.textContent = "Processing...";
+
+            try {
+                if (isSignUpMode) {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+                closeModal(authModal);
+            } catch (error) {
+                authError.textContent = error.message;
+                authError.classList.remove('hidden');
+            } finally {
+                authSubmitBtn.disabled = false;
+                authSubmitBtn.textContent = isSignUpMode ? "Sign Up" : "Sign In";
+            }
+        });
+
+        // Authentication State Observer
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                // Logged In
+                navUploadBtn.classList.remove('hidden');
+                authContainer.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xs text-gray-500 hidden sm:inline-block">Logged in as: <strong class="text-gray-700">${user.email}</strong></span>
+                        <button id="logoutBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition duration-150">
+                            Log Out
+                        </button>
+                    </div>
+                `;
+                document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+            } else {
+                // Logged Out
+                navUploadBtn.classList.add('hidden');
+                authContainer.innerHTML = `
+                    <button id="showAuthModalBtn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition duration-150">
+                        Sign In / Sign Up
+                    </button>
+                `;
+                document.getElementById('showAuthModalBtn').addEventListener('click', () => {
+                    isSignUpMode = false;
+                    updateAuthModalUI();
+                    openModal(authModal);
+                });
+            }
+        });
+
+        // Handle File Upload
+        uploadForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!currentUser) return;
+
+            const titleVal = uploadTitle.value;
+            const file = uploadFileInput.files[0];
+            
+            if (!file) {
+                uploadError.textContent = "Please select a file to upload.";
+                uploadError.classList.remove('hidden');
+                return;
+            }
+
+            uploadError.classList.add('hidden');
+            progressContainer.classList.remove('hidden');
+            uploadSubmitBtn.disabled = true;
+
+            // Define Storage reference paths inside standard 'uploads' directory
+            const uniqueFileName = `${Date.now()}_${file.name}`;
+            const fileRef = ref(storage, `uploads/${currentUser.uid}/${uniqueFileName}`);
+
+            const uploadTask = uploadBytesResumable(fileRef, file);
+
+            uploadTask.on('state_changed', 
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    progressBar.style.width = `${progress}%`;
+                }, 
+                (error) => {
+                    uploadError.textContent = error.message;
+                    uploadError.classList.remove('hidden');
+                    uploadSubmitBtn.disabled = false;
+                    progressContainer.classList.add('hidden');
+                }, 
+                async () => {
+                    try {
+                        // Retrieve public URL from Firebase Storage
+                        const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+                        // Save metadata to Cloud Firestore database
+                        await addDoc(collection(db, "files"), {
+                            title: titleVal,
+                            fileName: file.name,
+                            downloadUrl: downloadUrl,
+                            uploaderEmail: currentUser.email,
+                            uploaderUid: currentUser.uid,
+                            createdAt: new Date().toISOString()
+                        });
+
+                        closeModal(uploadModal);
+                    } catch (error) {
+                        uploadError.textContent = error.message;
+                        uploadError.classList.remove('hidden');
+                    } finally {
+                        uploadSubmitBtn.disabled = false;
+                        progressContainer.classList.add('hidden');
+                    }
+                }
+            );
+        });
+
+        // Setup real-time listeners for files collection in Firestore database
+        const filesCollectionRef = collection(db, "files");
+        const filesQuery = query(filesCollectionRef, orderBy("createdAt", "desc"));
+
+        onSnapshot(filesQuery, (snapshot) => {
+            filesData = [];
+            snapshot.forEach((doc) => {
+                filesData.push({ id: doc.id, ...doc.data() });
+            });
+            loadingIndicator.classList.add('hidden');
+            renderFiles(filesData);
+        }, (error) => {
+            console.error("Error listening to database changes:", error);
+            loadingIndicator.textContent = "Failed to fetch repository files. Verify Firestore Rules.";
+        });
+
+        // Render Cards inside Public Dashboard Grid
+        function renderFiles(files) {
+            // Remove everything except Loading element (if visible)
+            filesGrid.innerHTML = '';
+            
+            if (files.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            files.forEach((file) => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition duration-150";
+                
+                // Truncate email visually if needed
+                const shortEmail = file.uploaderEmail ? file.uploaderEmail.split('@')[0] : 'Anonymous';
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-1 rounded-full font-medium max-w-[150px] truncate" title="${file.fileName}">
+                                ${getFileExtension(file.fileName)}
+                            </span>
+                            <span class="text-xs text-gray-400 font-light">${formatDate(file.createdAt)}</span>
+                        </div>
+                        <h3 class="text-base font-bold text-gray-900 leading-snug line-clamp-2" title="${file.title}">${file.title}</h3>
+                        <p class="text-xs text-gray-400 mt-2 truncate">Uploaded by: <span class="font-medium text-gray-600">${shortEmail}</span></p>
+                    </div>
+                    <div class="mt-5 border-t pt-4">
+                        <a href="${file.downloadUrl}" target="_blank" download class="inline-flex w-full items-center justify-center bg-gray-900 hover:bg-gray-800 text-white font-medium py-2 px-3 rounded-lg text-xs transition duration-150 gap-1">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Download Resource
+                        </a>
+                    </div>
+                `;
+                filesGrid.appendChild(card);
+            });
+        }
+
+        // Live Frontend Filtering
+        searchInput.addEventListener('input', (e) => {
+            const queryText = e.target.value.toLowerCase().trim();
+            const filtered = filesData.filter(file => 
+                file.title.toLowerCase().includes(queryText) || 
+                file.fileName.toLowerCase().includes(queryText)
+            );
+            renderFiles(filtered);
+        });
+
+        // Helper: Extract File Extension for UI Tag
+        function getFileExtension(filename) {
+            if (!filename) return 'FILE';
+            return filename.substring(filename.lastIndexOf('.') + 1).toUpperCase();
+        }
+
+        // Helper: Format Dates consistently
+        function formatDate(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+    </script>
+</body>
+</html>

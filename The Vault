@@ -169,14 +169,14 @@
 
         // Placeholders for your Firebase credentials
         const firebaseConfig = {
-            apiKey: "YOUR_API_KEY",
-            authDomain: "YOUR_AUTH_DOMAIN",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_STORAGE_BUCKET",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
-
+  apiKey: "AIzaSyA_z_pdjIe1f-A4w5aeUaddEwkbsdB5D8Y",
+  authDomain: "ea-sen-online-repo.firebaseapp.com",
+  projectId: "ea-sen-online-repo",
+  storageBucket: "ea-sen-online-repo.firebasestorage.app",
+  messagingSenderId: "752106515881",
+  appId: "1:752106515881:web:9127e5e5023bb719c8e8b8",
+  measurementId: "G-GRECB52VL7"
+};
         // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
